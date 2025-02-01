@@ -1,0 +1,63 @@
+name: Auto Hot Script
+on:
+  schedule:
+    # 每 5 分钟运行一次（UTC 时间）
+    - cron: "*/5 * * * *"
+  workflow_dispatch:  # 允许手动触发
+
+# 并发控制：防止任务堆积
+concurrency:
+  group: hot-script-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3  # 超时时间（根据实际执行时间调整）
+    steps:
+      # --------------------- 第一步：拉取代码和数据库 ---------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 拉取完整提交历史（确保获取最新数据库）
+          persist-credentials: true  # 允许后续 git push
+
+      # --------------------- 第二步：设置 Python 环境 ---------------------
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      # --------------------- 第三步：缓存依赖加速安装 ---------------------
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        id: pip-cache
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # --------------------- 第四步：安装依赖 ---------------------
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # --------------------- 第五步：执行脚本 ---------------------
+      - name: Run hot.py
+        run: python hot.py
+
+      # --------------------- 第六步：提交数据库变更 ---------------------
+      - name: Commit and push database
+        run: |
+          # 配置 Git 身份
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions-bot@users.noreply.github.com"
+
+          # 添加并提交数据库文件
+          git add hot.db
+          git commit -m "[Automated] Update hot.db" || echo "No changes to commit"
+
+          # 推送到当前分支（自动适配 main/master）
+          git push origin HEAD:${{ github.ref }}
