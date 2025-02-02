@@ -1,8 +1,8 @@
 name: Auto Hot Script
 on:
   schedule:
-    # 每 5 分钟运行一次（UTC 时间）
-    - cron: "*/5 * * * *"
+    # 每 6 分钟运行一次（UTC 时间）
+    - cron: "*/6 * * * *"
   workflow_dispatch:  # 允许手动触发
 
 # 并发控制：防止任务堆积
